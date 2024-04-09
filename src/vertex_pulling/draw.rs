@@ -1,6 +1,6 @@
 use super::{cuboid_cache::CuboidBufferCache, index_buffer::CuboidsIndexBuffer};
 use bevy::{
-    ecs::system::{lifetimeless::*, SystemParamItem},
+    ecs::{query::ROQueryItem, system::{lifetimeless::*, SystemParamItem}},
     prelude::*,
     render::{
         render_asset::RenderAssets,
@@ -36,7 +36,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCuboidsViewBindGroup<
     #[inline]
     fn render<'w>(
         _item: &P,
-        view_uniform_offset: Self::ViewQuery,
+        view_uniform_offset: ROQueryItem<'w, Self::ViewQuery>,
         _entity: Option<Self::ItemQuery>,
         view_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,

@@ -1,7 +1,9 @@
 use super::buffers::*;
 use super::cuboid_cache::CuboidBufferCache;
 use super::draw::{AuxiliaryMeta, DrawCuboids, TransformsMeta, ViewMeta};
-use super::extract::{extract_clipping_planes, extract_cuboids};
+use super::extract::{extract_camera_phases, extract_clipping_planes, extract_cuboids};
+use super::node::{AabbOpaquePass3dLabel, AabbOpaquePass3dNode};
+use super::phase::AabbOpaque3d;
 use super::pipeline::{CuboidsPipelines, CuboidsShaderDefs, VERTEX_PULLING_SHADER_HANDLE};
 use super::prepare::{
     prepare_auxiliary_bind_group, prepare_clipping_planes, prepare_cuboid_transforms,
@@ -10,8 +12,11 @@ use super::prepare::{
 use super::queue::queue_cuboids;
 use crate::CuboidMaterialMap;
 use bevy::asset::load_internal_asset;
-use bevy::core_pipeline::core_3d::Opaque3d;
+use bevy::core_pipeline::core_3d::graph::{Core3d, Node3d};
+// use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::prelude::*;
+use bevy::render::render_graph::{RenderGraphApp, ViewNodeRunner};
+use bevy::render::render_phase::{sort_phase_system, DrawFunctions};
 use bevy::render::view::prepare_view_uniforms;
 use bevy::render::{render_phase::AddRenderCommand, RenderApp};
 use bevy::render::{Render, RenderSet};
@@ -57,16 +62,16 @@ impl Plugin for VertexPullingRenderPlugin {
         render_app.insert_resource(shader_defs);
 
         render_app
-            .add_render_command::<Opaque3d, DrawCuboids>()
             .init_resource::<AuxiliaryMeta>()
             .init_resource::<CuboidBufferCache>()
             .init_resource::<CuboidsPipelines>()
+            .init_resource::<DrawFunctions<AabbOpaque3d>>()
             .init_resource::<DynamicUniformBufferOfCuboidMaterial>()
             .init_resource::<DynamicUniformBufferOfCuboidTransforms>()
             .init_resource::<TransformsMeta>()
             .init_resource::<UniformBufferOfGpuClippingPlaneRanges>()
             .init_resource::<ViewMeta>()
-            .add_systems(ExtractSchedule, (extract_cuboids, extract_clipping_planes))
+            .add_systems(ExtractSchedule, (extract_cuboids, extract_clipping_planes, extract_camera_phases))
             .add_systems(
                 Render,
                 (
@@ -81,6 +86,20 @@ impl Plugin for VertexPullingRenderPlugin {
                 )
                     .in_set(RenderSet::Prepare),
             )
-            .add_systems(Render, queue_cuboids.in_set(RenderSet::Queue));
+            .add_systems(
+                Render,
+                (
+                    queue_cuboids.in_set(RenderSet::Queue),
+                    sort_phase_system::<AabbOpaque3d>.in_set(RenderSet::PhaseSort),
+                ),
+            );
+
+        render_app
+            .add_render_command::<AabbOpaque3d, DrawCuboids>()
+            .add_render_graph_node::<ViewNodeRunner<AabbOpaquePass3dNode>>(
+                Core3d,
+                AabbOpaquePass3dLabel,
+            )
+            .add_render_graph_edges(Core3d, (AabbOpaquePass3dLabel, Node3d::MainOpaquePass));
     }
 }
