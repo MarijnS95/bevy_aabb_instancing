@@ -14,11 +14,10 @@ pub(crate) fn extract_cuboids(
     cuboids: Extract<
         Query<(
             Entity,
-            &Cuboids,
+            Ref<Cuboids>,
             &GlobalTransform,
             &CuboidMaterialId,
             Option<&ViewVisibility>,
-            Or<(Added<Cuboids>, Changed<Cuboids>)>,
         )>,
     >,
     materials: Extract<Res<CuboidMaterialMap>>,
@@ -38,15 +37,8 @@ pub(crate) fn extract_cuboids(
     let materials_indices = materials.write_uniforms(&mut materials_uniforms);
 
     let mut extracted_entities = Vec::with_capacity(*prev_extracted_entities_size);
-    for (
-        entity,
-        cuboids,
-        transform,
-        materials_id,
-        maybe_visibility,
-        instance_buffer_needs_update,
-    ) in cuboids.iter()
-    {
+    for (entity, cuboids, transform, materials_id, maybe_visibility) in &cuboids {
+        let instance_buffer_needs_update = cuboids.is_added() || cuboids.is_changed();
         // Filter all entities that don't have any instances. If an entity went
         // from non-empty to empty, then it will get culled from the buffer
         // cache.
@@ -69,7 +61,7 @@ pub(crate) fn extract_cuboids(
         entry.enabled = is_visible;
         entry.keep_alive = true;
         entry.position = transform.position();
-        entry.transform_index = transform_uniforms.push(transform);
+        entry.transform_index = transform_uniforms.push(&transform);
     }
 
     *prev_extracted_entities_size = extracted_entities.len();

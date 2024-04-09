@@ -156,7 +156,7 @@ impl CuboidMaterialMap {
         uniforms.clear();
         let mut indices = Vec::new();
         for material in self.materials.iter() {
-            indices.push(CuboidMaterialUniformIndex(uniforms.push(material.clone())));
+            indices.push(CuboidMaterialUniformIndex(uniforms.push(material)));
         }
         indices
     }

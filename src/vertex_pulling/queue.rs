@@ -1,9 +1,11 @@
 use super::cuboid_cache::CuboidBufferCache;
 use super::draw::DrawCuboids;
+use super::index_buffer::{CuboidsIndexBuffer, CUBE_INDICES_HANDLE};
 use super::pipeline::CuboidsPipelines;
 
 use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::prelude::*;
+use bevy::render::render_asset::RenderAsset;
 use bevy::render::render_phase::{DrawFunctions, RenderPhase};
 use bevy::render::view::{ExtractedView, VisibleEntities};
 
@@ -33,9 +35,12 @@ pub(crate) fn queue_cuboids(
                         cuboids_pipelines.pipeline_id
                     };
                     opaque_phase.add(Opaque3d {
+                        // TODO: https://github.com/bevyengine/bevy/pull/11671/files
+                        asset_id: AssetId::invalid(),
+                        // asset_id: CUBE_INDICES_HANDLE.into(),
+                        // distance: inverse_view_row_2.dot(entry.position.extend(1.0)),
                         pipeline,
                         entity,
-                        distance: inverse_view_row_2.dot(entry.position.extend(1.0)),
                         draw_function: draw_cuboids,
                         batch_range: 0..1,
                         dynamic_offset: None,

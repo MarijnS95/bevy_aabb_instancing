@@ -8,12 +8,11 @@ use bevy::{
     render::{
         mesh::PrimitiveTopology,
         render_resource::{
-            BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-            BlendState, BufferBindingType, BufferSize, CachedRenderPipelineId, ColorTargetState,
-            ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
-            FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-            RenderPipelineDescriptor, ShaderStages, ShaderType, StencilFaceState, StencilState,
-            TextureFormat, VertexState,
+            BindGroupLayout, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
+            BufferSize, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
+            DepthBiasState, DepthStencilState, FragmentState, FrontFace, MultisampleState,
+            PipelineCache, PolygonMode, PrimitiveState, RenderPipelineDescriptor, ShaderStages,
+            ShaderType, StencilFaceState, StencilState, TextureFormat, VertexState,
         },
         renderer::RenderDevice,
         view::ViewUniform,
@@ -38,9 +37,9 @@ impl FromWorld for CuboidsPipelines {
     fn from_world(world: &mut World) -> Self {
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("cuboids_view_layout"),
-            entries: &[
+        let view_layout = render_device.create_bind_group_layout(
+            Some("cuboids_view_layout"),
+            &[
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -53,11 +52,11 @@ impl FromWorld for CuboidsPipelines {
                     count: None,
                 },
             ],
-        });
+        );
 
-        let aux_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("aux_layout"),
-            entries: &[
+        let aux_layout = render_device.create_bind_group_layout(
+            Some("aux_layout"),
+            &[
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -79,27 +78,26 @@ impl FromWorld for CuboidsPipelines {
                     count: None,
                 },
             ],
-        });
+        );
 
-        let transforms_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("transforms_layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        // We always have a single transform for each instance buffer.
-                        min_binding_size: Some(CuboidsTransform::min_size()),
-                    },
-                    count: None,
-                }],
-            });
+        let transforms_layout = render_device.create_bind_group_layout(
+            Some("transforms_layout"),
+            &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    // We always have a single transform for each instance buffer.
+                    min_binding_size: Some(CuboidsTransform::min_size()),
+                },
+                count: None,
+            }],
+        );
 
-        let cuboids_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("cuboid_instances_layout"),
-            entries: &[BindGroupLayoutEntry {
+        let cuboids_layout = render_device.create_bind_group_layout(
+            Some("cuboid_instances_layout"),
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
@@ -109,7 +107,7 @@ impl FromWorld for CuboidsPipelines {
                 },
                 count: None,
             }],
-        });
+        );
 
         let sample_count = world.resource::<Msaa>().samples();
         let shader_defs = world.resource::<CuboidsShaderDefs>();

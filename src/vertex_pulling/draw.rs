@@ -30,13 +30,14 @@ pub(crate) struct SetCuboidsViewBindGroup<const I: usize>;
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCuboidsViewBindGroup<I> {
     type Param = SRes<ViewMeta>;
-    type ItemWorldQuery = ();
-    type ViewWorldQuery = Read<ViewUniformOffset>;
+    type ItemQuery = ();
+    type ViewQuery = Read<ViewUniformOffset>;
+
     #[inline]
     fn render<'w>(
         _item: &P,
-        view_uniform_offset: &'_ ViewUniformOffset,
-        _entity: (),
+        view_uniform_offset: Self::ViewQuery,
+        _entity: Option<Self::ItemQuery>,
         view_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
@@ -63,20 +64,20 @@ pub(crate) struct SetAuxBindGroup<const I: usize>;
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetAuxBindGroup<I> {
     type Param = (SRes<CuboidBufferCache>, SRes<AuxiliaryMeta>);
-    type ItemWorldQuery = Entity;
-    type ViewWorldQuery = ();
+    type ItemQuery = Entity;
+    type ViewQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
-        entity: Entity,
+        _view: Self::ViewQuery,
+        entity: Option<Self::ItemQuery>,
         (buffer_cache, aux_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let buffer_cache = buffer_cache.into_inner();
         let aux_meta = aux_meta.into_inner();
-        let entry = buffer_cache.entries.get(&entity).unwrap();
+        let entry = buffer_cache.entries.get(&entity.unwrap()).unwrap();
         pass.set_bind_group(
             I,
             aux_meta.bind_group.as_ref().unwrap(),
@@ -95,19 +96,23 @@ pub(crate) struct SetGpuTransformBufferBindGroup<const I: usize>;
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuTransformBufferBindGroup<I> {
     type Param = (SRes<CuboidBufferCache>, SRes<TransformsMeta>);
-    type ItemWorldQuery = Entity;
-    type ViewWorldQuery = ();
+    type ItemQuery = Entity;
+    type ViewQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
-        entity: Entity,
+        _view: Self::ViewQuery,
+        entity: Option<Self::ItemQuery>,
         (buffer_cache, transforms_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         let transforms_meta = transforms_meta.into_inner();
-        let entry = buffer_cache.into_inner().entries.get(&entity).unwrap();
+        let entry = buffer_cache
+            .into_inner()
+            .entries
+            .get(&entity.unwrap())
+            .unwrap();
         pass.set_bind_group(
             I,
             transforms_meta
@@ -124,18 +129,22 @@ pub(crate) struct SetGpuCuboidBuffersBindGroup<const I: usize>;
 
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuCuboidBuffersBindGroup<I> {
     type Param = SRes<CuboidBufferCache>;
-    type ItemWorldQuery = Entity;
-    type ViewWorldQuery = ();
+    type ItemQuery = Entity;
+    type ViewQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
-        entity: Entity,
+        _view: Self::ViewQuery,
+        entity: Option<Self::ItemQuery>,
         buffer_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        let entry = buffer_cache.into_inner().entries.get(&entity).unwrap();
+        let entry = buffer_cache
+            .into_inner()
+            .entries
+            .get(&entity.unwrap())
+            .unwrap();
         pass.set_bind_group(I, entry.instance_buffer_bind_group.as_ref().unwrap(), &[]);
         RenderCommandResult::Success
     }
@@ -148,19 +157,23 @@ impl<P: PhaseItem> RenderCommand<P> for DrawVertexPulledCuboids {
         SRes<CuboidBufferCache>,
         SRes<RenderAssets<CuboidsIndexBuffer>>,
     );
-    type ItemWorldQuery = Entity;
-    type ViewWorldQuery = ();
+    type ItemQuery = Entity;
+    type ViewQuery = ();
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: (),
-        entity: Entity,
+        _view: Self::ViewQuery,
+        entity: Option<Self::ItemQuery>,
         (buffer_cache, index_buffers): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         use super::index_buffer::{CUBE_INDICES, CUBE_INDICES_HANDLE};
-        let entry = buffer_cache.into_inner().entries.get(&entity).unwrap();
+        let entry = buffer_cache
+            .into_inner()
+            .entries
+            .get(&entity.unwrap())
+            .unwrap();
         let num_cuboids = entry.instance_buffer.get().len().try_into().unwrap();
         let index_buffer = index_buffers
             .into_inner()
