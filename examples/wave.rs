@@ -84,5 +84,7 @@ fn toggle_fps_controller(
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
         controller.single_mut().enabled = true;
+    } else if mouse_button_input.just_pressed(MouseButton::Right) {
+        controller.single_mut().enabled = false;
     }
 }
