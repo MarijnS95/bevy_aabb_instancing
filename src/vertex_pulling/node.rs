@@ -39,7 +39,7 @@ impl ViewNode for AabbOpaquePass3dNode {
         let view_entity = graph.view_entity();
         render_context.add_command_buffer_generation_task(move |render_device| {
             #[cfg(feature = "trace")]
-            let _main_opaque_pass_3d_span = info_span!("main_opaque_pass_3d").entered();
+            let _aabb_opaque_pass_3d_span = info_span!("aabb_opaque_pass_3d").entered();
 
             // Command encoder setup
             let mut command_encoder =
