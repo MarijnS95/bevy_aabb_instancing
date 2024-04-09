@@ -79,7 +79,7 @@ fn update_scalar_hue_options(time: Res<Time>, mut material_map: ResMut<CuboidMat
 }
 
 fn toggle_fps_controller(
-    mouse_button_input: Res<Input<MouseButton>>,
+    mouse_button_input: Res<ButtonInput<MouseButton>>,
     mut controller: Query<&mut FpsCameraController>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {

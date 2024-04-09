@@ -1,17 +1,17 @@
 use bevy::{
     asset::{Asset, Handle},
     core::cast_slice,
-    ecs::system::lifetimeless::SRes,
-    reflect::{TypePath, TypeUuid},
+    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    reflect::TypePath,
     render::{
-        render_asset::RenderAsset,
+        render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
         render_resource::{Buffer, BufferInitDescriptor, BufferUsages},
         renderer::RenderDevice,
     },
 };
 
-#[derive(Asset, Default, TypeUuid, TypePath)]
-#[uuid = "8f6d78a6-fffe-4e54-81db-08b0739a947a"]
+#[derive(Asset, Clone, Default, TypePath)]
+// #[uuid = "8f6d78a6-fffe-4e54-81db-08b0739a947a"]
 pub struct CuboidsIndexBuffer;
 
 pub(crate) const CUBE_INDICES_HANDLE: Handle<CuboidsIndexBuffer> =
@@ -34,23 +34,19 @@ pub(crate) const CUBE_INDICES: [u32; NUM_CUBE_INDICES_USIZE] = [
 ];
 
 impl RenderAsset for CuboidsIndexBuffer {
-    type ExtractedAsset = Self;
-
     type PreparedAsset = Buffer;
 
     type Param = SRes<RenderDevice>;
 
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        Self
+    fn asset_usage(&self) -> RenderAssetUsages {
+        // TODO
+        RenderAssetUsages::all()
     }
 
     fn prepare_asset(
-        _extracted_asset: Self::ExtractedAsset,
-        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<
-        Self::PreparedAsset,
-        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
-    > {
+        self,
+        render_device: &mut SystemParamItem<Self::Param>,
+    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::INDEX,
             label: Some("Cuboid Index Buffer"),
