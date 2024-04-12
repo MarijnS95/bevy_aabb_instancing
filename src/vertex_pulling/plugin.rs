@@ -71,7 +71,14 @@ impl Plugin for VertexPullingRenderPlugin {
             .init_resource::<TransformsMeta>()
             .init_resource::<UniformBufferOfGpuClippingPlaneRanges>()
             .init_resource::<ViewMeta>()
-            .add_systems(ExtractSchedule, (extract_cuboids, extract_clipping_planes, extract_camera_phases))
+            .add_systems(
+                ExtractSchedule,
+                (
+                    extract_cuboids,
+                    extract_clipping_planes,
+                    extract_camera_phases,
+                ),
+            )
             .add_systems(
                 Render,
                 (

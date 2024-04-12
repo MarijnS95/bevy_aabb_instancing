@@ -1,6 +1,13 @@
 use std::{cmp::Reverse, ops::Range};
 
-use bevy::{ecs::entity::Entity, render::{render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem}, render_resource::CachedRenderPipelineId}, utils::{nonmax::NonMaxU32, FloatOrd}};
+use bevy::{
+    ecs::entity::Entity,
+    render::{
+        render_phase::{CachedRenderPipelinePhaseItem, DrawFunctionId, PhaseItem},
+        render_resource::CachedRenderPipelineId,
+    },
+    utils::{nonmax::NonMaxU32, FloatOrd},
+};
 
 pub struct AabbOpaque3d {
     pub distance: f32,

@@ -1,6 +1,9 @@
 use super::{cuboid_cache::CuboidBufferCache, index_buffer::CuboidsIndexBuffer};
 use bevy::{
-    ecs::{query::ROQueryItem, system::{lifetimeless::*, SystemParamItem}},
+    ecs::{
+        query::ROQueryItem,
+        system::{lifetimeless::*, SystemParamItem},
+    },
     prelude::*,
     render::{
         render_asset::RenderAssets,

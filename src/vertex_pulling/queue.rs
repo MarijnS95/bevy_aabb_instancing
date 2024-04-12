@@ -11,7 +11,11 @@ pub(crate) fn queue_cuboids(
     cuboids_pipelines: Res<CuboidsPipelines>,
     opaque_3d_draw_functions: Res<DrawFunctions<AabbOpaque3d>>,
     buffer_cache: Res<CuboidBufferCache>,
-    mut views: Query<(&ExtractedView, &VisibleEntities, &mut RenderPhase<AabbOpaque3d>)>,
+    mut views: Query<(
+        &ExtractedView,
+        &VisibleEntities,
+        &mut RenderPhase<AabbOpaque3d>,
+    )>,
 ) {
     let draw_cuboids = opaque_3d_draw_functions
         .read()
