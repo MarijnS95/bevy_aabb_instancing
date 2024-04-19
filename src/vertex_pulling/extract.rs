@@ -1,10 +1,12 @@
 use super::buffers::*;
 use super::cuboid_cache::CuboidBufferCache;
+use super::phase::AabbOpaque3d;
 use crate::clipping_planes::*;
 use crate::cuboids::*;
 use crate::CuboidMaterialId;
 use crate::CuboidMaterialMap;
 
+use bevy::render::render_phase::RenderPhase;
 use bevy::{prelude::*, render::Extract};
 
 #[allow(clippy::type_complexity)]
@@ -95,4 +97,17 @@ pub(crate) fn extract_clipping_planes(
         );
     }
     clipping_plane_uniform.set(gpu_planes);
+}
+
+pub(crate) fn extract_camera_phases(
+    mut commands: Commands,
+    camemras_3d: Extract<Query<(Entity, &Camera), With<Camera3d>>>,
+) {
+    for (entity, camera) in camemras_3d.iter() {
+        if camera.is_active {
+            commands
+                .get_or_spawn(entity)
+                .insert(RenderPhase::<AabbOpaque3d>::default());
+        }
+    }
 }

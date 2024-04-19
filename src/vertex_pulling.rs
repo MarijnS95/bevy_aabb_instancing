@@ -5,6 +5,8 @@ mod cuboid_cache;
 mod draw;
 mod extract;
 mod index_buffer;
+mod node;
+mod phase;
 mod pipeline;
 mod prepare;
 mod queue;
