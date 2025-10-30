@@ -180,7 +180,7 @@ fn vertex(@builtin(vertex_index) vertex_index: u32, @builtin(instance_index) ins
     );
     let model_position = cube_corner * cuboid.max + (1.0 - cube_corner) * cuboid.min;
     let world_position = transform.m * vec4<f32>(model_position, 1.0);
-    let ndc_position = view.view_proj * world_position;
+    let ndc_position = view.clip_from_world * world_position;
 
     out.clip_position = ndc_position;
 

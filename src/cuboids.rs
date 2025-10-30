@@ -1,6 +1,10 @@
 use bevy::{
+    camera::{
+        primitives::Aabb,
+        visibility::{self, VisibilityClass},
+    },
     prelude::*,
-    render::{primitives::Aabb, render_resource::ShaderType},
+    render::{extract_component::ExtractComponent, render_resource::ShaderType},
 };
 
 use crate::CuboidMaterialId;
@@ -75,7 +79,9 @@ impl Cuboid {
 }
 
 /// A set of cuboids to be extracted for rendering.
-#[derive(Clone, Component, Debug, Default)]
+#[derive(Clone, Component)] // ExtractComponent
+#[require(VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<Cuboids>)]
 pub struct Cuboids {
     /// Instances to be rendered.
     pub instances: Vec<Cuboid>,
@@ -88,6 +94,8 @@ impl Cuboids {
 
     /// Automatically creates an [`Aabb`] that bounds all `instances`.
     pub fn aabb(&self) -> Aabb {
+        // Aabb::enclosing(self.instances.iter().flat_map(|c| [c.minimum, c.maximum])).unwrap()
+        // Similar:
         let mut min = Vec3::splat(f32::MAX);
         let mut max = Vec3::splat(f32::MIN);
         for i in self.instances.iter() {
@@ -118,9 +126,11 @@ impl CuboidsTransform {
     }
 }
 
-#[derive(Bundle)]
-pub struct CuboidsBundle {
-    pub material_id: CuboidMaterialId,
-    pub cuboids: Cuboids,
-    pub spatial: SpatialBundle,
-}
+// TODO: Unused
+// #[derive(Bundle)]
+// pub struct CuboidsBundle {
+//     pub material_id: CuboidMaterialId,
+//     pub cuboids: Cuboids,
+//     pub transform: Transform,
+//     pub visibility: Visibility,
+// }

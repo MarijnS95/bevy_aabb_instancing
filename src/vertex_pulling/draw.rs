@@ -1,4 +1,6 @@
+use super::index_buffer::CUBE_INDICES;
 use super::{cuboid_cache::CuboidBufferCache, index_buffer::CuboidsIndexBuffer};
+use bevy::ecs::query::ROQueryItem;
 use bevy::{
     ecs::system::{lifetimeless::*, SystemParamItem},
     prelude::*,
@@ -33,14 +35,15 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetCuboidsViewBindGroup<
     type ItemQuery = ();
     type ViewQuery = Read<ViewUniformOffset>;
 
-    #[inline]
+    // #[inline]
     fn render<'w>(
         _item: &P,
-        view_uniform_offset: Self::ViewQuery,
-        _entity: Option<Self::ItemQuery>,
+        view_uniform_offset: ROQueryItem<'w, '_, Self::ViewQuery>,
+        _entity: Option<ROQueryItem<'w, '_, Self::ItemQuery>>,
         view_meta: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        info!("SetCuboidsViewBindGroup");
         pass.set_bind_group(
             I,
             view_meta
@@ -75,6 +78,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetAuxBindGroup<I> {
         (buffer_cache, aux_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        info!("SetAuxBindGroup");
         let buffer_cache = buffer_cache.into_inner();
         let aux_meta = aux_meta.into_inner();
         let entry = buffer_cache.entries.get(&entity.unwrap()).unwrap();
@@ -107,6 +111,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuTransformBufferBin
         (buffer_cache, transforms_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        info!("SetGpuTransformBufferBindGroup");
         let transforms_meta = transforms_meta.into_inner();
         let entry = buffer_cache
             .into_inner()
@@ -140,6 +145,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuCuboidBuffersBindG
         buffer_cache: SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
+        info!("SetGpuCuboidBuffersBindGroup");
         let entry = buffer_cache
             .into_inner()
             .entries
@@ -153,10 +159,7 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuCuboidBuffersBindG
 pub(crate) struct DrawVertexPulledCuboids;
 
 impl<P: PhaseItem> RenderCommand<P> for DrawVertexPulledCuboids {
-    type Param = (
-        SRes<CuboidBufferCache>,
-        SRes<RenderAssets<CuboidsIndexBuffer>>,
-    );
+    type Param = (SRes<CuboidBufferCache>, SRes<CuboidsIndexBuffer>);
     type ItemQuery = Entity;
     type ViewQuery = ();
 
@@ -168,18 +171,20 @@ impl<P: PhaseItem> RenderCommand<P> for DrawVertexPulledCuboids {
         (buffer_cache, index_buffers): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        use super::index_buffer::{CUBE_INDICES, CUBE_INDICES_HANDLE};
+        info!("DrawVertexPulledCuboids");
         let entry = buffer_cache
             .into_inner()
             .entries
             .get(&entity.unwrap())
             .unwrap();
         let num_cuboids = entry.instance_buffer.get().len().try_into().unwrap();
-        let index_buffer = index_buffers
-            .into_inner()
-            .get(&CUBE_INDICES_HANDLE)
-            .unwrap();
-        pass.set_index_buffer(index_buffer.slice(..), 0, IndexFormat::Uint32);
+        // TODO: We must be able to get a single resource somehow, without having inserted it globally to be loaded randomly
+        // let index_buffer = index_buffers
+        //     .into_inner()
+        //     .get(&CUBE_INDICES_HANDLE)
+        //     .unwrap();
+        todo!();
+        // pass.set_index_buffer(index_buffer.slice(..), 0, IndexFormat::Uint32);
         pass.draw_indexed(0..(CUBE_INDICES.len() as u32), 0, 0..num_cuboids);
         RenderCommandResult::Success
     }

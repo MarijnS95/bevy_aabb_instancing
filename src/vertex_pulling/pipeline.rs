@@ -1,12 +1,17 @@
 use crate::clipping_planes::GpuClippingPlaneRanges;
 use crate::{cuboids::CuboidsTransform, CuboidMaterial};
 
-use bevy::render::render_resource::ShaderDefVal;
-use bevy::render::texture::BevyDefault;
+use bevy::asset::{
+    embedded_asset, load_embedded_asset, load_internal_asset, load_internal_binary_asset,
+};
+use bevy::mesh::PrimitiveTopology;
+use bevy::shader::{load_shader_library, ShaderDefVal};
+// use bevy::render::render_resource::ShaderDefVal;
+// use bevy::render::texture::BevyDefault;
 use bevy::{
     prelude::*,
     render::{
-        mesh::PrimitiveTopology,
+        // mesh::PrimitiveTopology,
         render_resource::{
             BindGroupLayout, BindGroupLayoutEntry, BindingType, BlendState, BufferBindingType,
             BufferSize, CachedRenderPipelineId, ColorTargetState, ColorWrites, CompareFunction,
@@ -30,11 +35,10 @@ pub(crate) struct CuboidsPipelines {
     pub view_layout: BindGroupLayout,
 }
 
-pub(crate) const VERTEX_PULLING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(17343092250772987267);
-
 impl FromWorld for CuboidsPipelines {
     fn from_world(world: &mut World) -> Self {
+        let vertex_pulling = load_embedded_asset!(world, "vertex_pulling.wgsl");
+
         let render_device = world.resource::<RenderDevice>();
 
         let view_layout = render_device.create_bind_group_layout(
@@ -109,7 +113,7 @@ impl FromWorld for CuboidsPipelines {
             }],
         );
 
-        let sample_count = world.resource::<Msaa>().samples();
+        let sample_count = 1; // TODO: world.resource::<Msaa>().samples();
         let shader_defs = world.resource::<CuboidsShaderDefs>();
 
         let layout = vec![
@@ -119,15 +123,15 @@ impl FromWorld for CuboidsPipelines {
             cuboids_layout.clone(),
         ];
         let vertex = VertexState {
-            shader: VERTEX_PULLING_SHADER_HANDLE,
+            shader: vertex_pulling.clone(),
             shader_defs: shader_defs.vertex.clone(),
-            entry_point: "vertex".into(),
+            entry_point: Some("vertex".into()),
             buffers: vec![],
         };
         let fragment_target = |texture_format| FragmentState {
-            shader: VERTEX_PULLING_SHADER_HANDLE,
+            shader: vertex_pulling.clone(),
             shader_defs: shader_defs.fragment.clone(),
-            entry_point: "fragment".into(),
+            entry_point: Some("fragment".into()),
             targets: vec![Some(ColorTargetState {
                 format: texture_format,
                 blend: Some(BlendState::REPLACE),
@@ -174,6 +178,7 @@ impl FromWorld for CuboidsPipelines {
             depth_stencil: depth_stencil.clone(),
             multisample,
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         };
 
         let hdr_pipeline_descriptor = RenderPipelineDescriptor {
@@ -185,6 +190,7 @@ impl FromWorld for CuboidsPipelines {
             depth_stencil,
             multisample,
             push_constant_ranges: Vec::new(),
+            zero_initialize_workgroup_memory: false,
         };
 
         let pipeline_cache = world.resource_mut::<PipelineCache>();

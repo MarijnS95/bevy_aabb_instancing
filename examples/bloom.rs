@@ -49,15 +49,20 @@ fn setup(mut commands: Commands) {
 
     let cuboids = Cuboids::new(cuboids);
     let aabb = cuboids.aabb();
-    commands
-        .spawn(SpatialBundle::default())
-        .insert((cuboids, aabb, CuboidMaterialId(0)));
+    commands.spawn((
+        Transform::default(),
+        Visibility::default(),
+        cuboids,
+        aabb,
+        CuboidMaterialId(0),
+    ));
 
     commands
         .spawn((
             Camera3dBundle {
                 camera: Camera {
-                    hdr: true,
+                    // TODO
+                    // hdr: true,
                     ..default()
                 },
                 tonemapping: Tonemapping::TonyMcMapface,

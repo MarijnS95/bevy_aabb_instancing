@@ -1,21 +1,27 @@
 use bevy::{
-    asset::{Asset, Handle},
-    core::cast_slice,
-    ecs::system::{lifetimeless::SRes, SystemParamItem},
+    asset::{Asset, Handle, RenderAssetUsages},
+    ecs::{
+        component::Component,
+        resource::Resource,
+        system::{lifetimeless::SRes, Commands, SystemParamItem},
+        world::{FromWorld, World},
+    },
+    log::info,
     reflect::TypePath,
     render::{
-        render_asset::{PrepareAssetError, RenderAsset, RenderAssetUsages},
+        extract_component::ExtractComponent,
+        render_asset::{PrepareAssetError, RenderAsset},
         render_resource::{Buffer, BufferInitDescriptor, BufferUsages},
-        renderer::RenderDevice,
+        renderer::{RenderDevice, RenderQueue},
     },
 };
 
-#[derive(Asset, Clone, Default, TypePath)]
+#[derive(Resource)]
 // #[uuid = "8f6d78a6-fffe-4e54-81db-08b0739a947a"]
-pub struct CuboidsIndexBuffer;
+pub struct CuboidsIndexBuffer(Buffer);
 
-pub(crate) const CUBE_INDICES_HANDLE: Handle<CuboidsIndexBuffer> =
-    Handle::weak_from_u128(17343092250772987267);
+// pub(crate) const CUBE_INDICES_HANDLE: Handle<CuboidsIndexBuffer> =
+//     Handle::weak_from_u128(17343092250772987267);
 
 // Only 3 faces are actually drawn.
 const NUM_CUBE_INDICES_USIZE: usize = 3 * 3 * 2;
@@ -33,25 +39,74 @@ pub(crate) const CUBE_INDICES: [u32; NUM_CUBE_INDICES_USIZE] = [
     0b10_000, 0b10_100, 0b10_110, 0b10_000, 0b10_110, 0b10_010, // face YZ (2)
 ];
 
-impl RenderAsset for CuboidsIndexBuffer {
-    type PreparedAsset = Buffer;
+pub(crate) fn prepare_cuboids_index_buffer(mut commands: Commands) {
+    commands.init_resource::<CuboidsIndexBuffer>()
+}
 
-    type Param = SRes<RenderDevice>;
+// impl RenderAsset for CuboidsIndexBuffer {
+//     // Nothing, because it's static CPU data
+//     type SourceAsset = ();
 
-    fn asset_usage(&self) -> RenderAssetUsages {
-        // TODO
-        RenderAssetUsages::all()
-    }
+//     type Param = SRes<RenderDevice>;
 
-    fn prepare_asset(
-        self,
-        render_device: &mut SystemParamItem<Self::Param>,
-    ) -> Result<Self::PreparedAsset, PrepareAssetError<Self>> {
+//     fn asset_usage(_source_asset: &Self::SourceAsset) -> RenderAssetUsages {
+//         RenderAssetUsages::RENDER_WORLD
+//     }
+
+//     fn byte_len(_source_asset: &Self::SourceAsset) -> Option<usize> {
+//         Some(size_of_val(&CUBE_INDICES))
+//     }
+
+//     fn prepare_asset(
+//         source_asset: Self::SourceAsset,
+//         asset_id: bevy::asset::AssetId<Self::SourceAsset>,
+//         render_device: &mut SystemParamItem<Self::Param>,
+//         previous_asset: Option<&Self>,
+//     ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+//         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
+//             usage: BufferUsages::INDEX,
+//             label: Some("Cuboid Index Buffer"),
+//             // contents: cast_slice(CUBE_INDICES.as_slice()),
+//             contents: unsafe {
+//                 std::slice::from_raw_parts(CUBE_INDICES.as_ptr().cast(), size_of_val(&CUBE_INDICES))
+//             },
+//         });
+//         Ok(Self(buffer))
+//     }
+// }
+impl FromWorld for CuboidsIndexBuffer {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
+        // let render_queue = world.resource::<RenderQueue>();
+        // // Nothing, because it's static CPU data
+        // type SourceAsset = ();
+
+        // type Param = SRes<RenderDevice>;
+
+        // fn asset_usage(_source_asset: &Self::SourceAsset) -> RenderAssetUsages {
+        //     RenderAssetUsages::RENDER_WORLD
+        // }
+
+        // fn byte_len(_source_asset: &Self::SourceAsset) -> Option<usize> {
+        //     Some(size_of_val(&CUBE_INDICES))
+        // }
+
+        // fn prepare_asset(
+        //     source_asset: Self::SourceAsset,
+        //     asset_id: bevy::asset::AssetId<Self::SourceAsset>,
+        //     render_device: &mut SystemParamItem<Self::Param>,
+        //     previous_asset: Option<&Self>,
+        // ) -> Result<Self, PrepareAssetError<Self::SourceAsset>> {
+        // let mut buffer = RawBufferVec::new(BufferUsages::INDEX);
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::INDEX,
             label: Some("Cuboid Index Buffer"),
-            contents: cast_slice(CUBE_INDICES.as_slice()),
+            // contents: cast_slice(CUBE_INDICES.as_slice()),
+            contents: unsafe {
+                std::slice::from_raw_parts(CUBE_INDICES.as_ptr().cast(), size_of_val(&CUBE_INDICES))
+            },
         });
-        Ok(buffer)
+        info!("Init buffer {buffer:?}");
+        Self(buffer)
     }
 }

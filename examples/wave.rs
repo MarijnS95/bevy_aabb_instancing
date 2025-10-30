@@ -8,7 +8,7 @@ use smooth_bevy_cameras::{controllers::fps::*, LookTransformPlugin};
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Msaa::Off)
+        // .insert_resource(Msaa::Off)
         .add_plugins((
             VertexPullingRenderPlugin { outlines: true },
             LookTransformPlugin,
@@ -51,14 +51,18 @@ fn setup(mut commands: Commands, mut material_map: ResMut<CuboidMaterialMap>) {
             }
             let cuboids = Cuboids::new(instances);
             let aabb = cuboids.aabb();
-            commands
-                .spawn(SpatialBundle::default())
-                .insert((cuboids, aabb, material_id));
+            commands.spawn((
+                Transform::default(),
+                Visibility::default(),
+                cuboids,
+                aabb,
+                material_id,
+            ));
         }
     }
 
     commands
-        .spawn(Camera3dBundle::default())
+        .spawn(Camera3d::default())
         .insert(FpsCameraBundle::new(
             FpsCameraController {
                 translate_sensitivity: 200.0,
@@ -73,7 +77,7 @@ fn setup(mut commands: Commands, mut material_map: ResMut<CuboidMaterialMap>) {
 
 fn update_scalar_hue_options(time: Res<Time>, mut material_map: ResMut<CuboidMaterialMap>) {
     let material = material_map.get_mut(CuboidMaterialId(1));
-    let tv = 1000.0 * (time.elapsed_seconds().sin() + 1.0);
+    let tv = 1000.0 * (time.elapsed_secs() + 1.0);
     material.scalar_hue.max_visible = tv;
     material.scalar_hue.clamp_max = tv;
 }
@@ -83,6 +87,7 @@ fn toggle_fps_controller(
     mut controller: Query<&mut FpsCameraController>,
 ) {
     if mouse_button_input.just_pressed(MouseButton::Left) {
-        controller.single_mut().enabled = true;
+        panic!()
+        // controller.single_mut().enabled = true;
     }
 }
