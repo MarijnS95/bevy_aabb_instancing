@@ -39,8 +39,9 @@ pub(crate) fn queue_cuboids(
         let inverse_view_row_2 = inverse_view_matrix.row(2);
 
         for &entity in view_visible_entities.get::<Cuboids>().iter() {
-            // TODO: Re-enable extraction logic
-            if let Some(entry) = buffer_cache.entries.get(&entity.0) {
+            if let Some(entry) = buffer_cache.entries.get(&entity.1.id()) {
+                warn!("{entity:?} EN? {}", entry.enabled);
+
                 if entry.enabled {
                     // TODO: Replace with SpecializedRenderPipeline
                     let pipeline_id = if view.hdr {
@@ -72,7 +73,7 @@ pub(crate) fn queue_cuboids(
                     );
                 }
             } else {
-                // warn!("Skip {entity:?} because extract_cuboids didn't add it to the cache yet");
+                warn!("Skip {entity:?} because extract_cuboids didn't add it to the cache yet");
             }
         }
     }

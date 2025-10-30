@@ -79,7 +79,7 @@ impl Cuboid {
 }
 
 /// A set of cuboids to be extracted for rendering.
-#[derive(Clone, Component)] // ExtractComponent
+#[derive(Clone, Component, ExtractComponent)]
 #[require(VisibilityClass)]
 #[component(on_add = visibility::add_visibility_class::<Cuboids>)]
 pub struct Cuboids {

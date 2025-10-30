@@ -1,6 +1,7 @@
 use super::index_buffer::CUBE_INDICES;
 use super::{cuboid_cache::CuboidBufferCache, index_buffer::CuboidsIndexBuffer};
 use bevy::ecs::query::ROQueryItem;
+use bevy::render::sync_world::MainEntity;
 use bevy::{
     ecs::system::{lifetimeless::*, SystemParamItem},
     prelude::*,
@@ -68,25 +69,32 @@ pub(crate) struct SetAuxBindGroup<const I: usize>;
 impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetAuxBindGroup<I> {
     type Param = (SRes<CuboidBufferCache>, SRes<AuxiliaryMeta>);
     type ItemQuery = Entity;
-    type ViewQuery = ();
+    // type ItemQuery = MainEntity;
+    type ViewQuery = Entity;
 
     #[inline]
     fn render<'w>(
         _item: &P,
-        _view: Self::ViewQuery,
+        view: Self::ViewQuery,
+        // entity: Option<Self::ItemQuery>,
         entity: Option<Self::ItemQuery>,
         (buffer_cache, aux_meta): SystemParamItem<'w, '_, Self::Param>,
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
-        info!("SetAuxBindGroup");
+        info!("SetAuxBindGroup {view:?} {entity:?}");
         let buffer_cache = buffer_cache.into_inner();
         let aux_meta = aux_meta.into_inner();
-        let entry = buffer_cache.entries.get(&entity.unwrap()).unwrap();
-        pass.set_bind_group(
-            I,
-            aux_meta.bind_group.as_ref().unwrap(),
-            &[entry.material_index],
-        );
+        // TODO: entity is none, and the sample doesn't even use it to find buffer-cache data
+        // https://docs.rs/bevy/0.17.2/src/custom_phase_item/custom_phase_item.rs.html#215-280
+        // Probably need a better way to pass that buffer cache around, instead of keying it ourselves?
+        if let Some(entity) = entity {
+            let entry = buffer_cache.entries.get(&entity).unwrap();
+            pass.set_bind_group(
+                I,
+                aux_meta.bind_group.as_ref().unwrap(),
+                &[entry.material_index],
+            );
+        }
         RenderCommandResult::Success
     }
 }
@@ -113,6 +121,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuTransformBufferBin
     ) -> RenderCommandResult {
         info!("SetGpuTransformBufferBindGroup");
         let transforms_meta = transforms_meta.into_inner();
+        if entity.is_none() {
+            return RenderCommandResult::Success;
+        }
         let entry = buffer_cache
             .into_inner()
             .entries
@@ -146,6 +157,9 @@ impl<P: PhaseItem, const I: usize> RenderCommand<P> for SetGpuCuboidBuffersBindG
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         info!("SetGpuCuboidBuffersBindGroup");
+        if entity.is_none() {
+            return RenderCommandResult::Success;
+        }
         let entry = buffer_cache
             .into_inner()
             .entries
@@ -172,6 +186,9 @@ impl<P: PhaseItem> RenderCommand<P> for DrawVertexPulledCuboids {
         pass: &mut TrackedRenderPass<'w>,
     ) -> RenderCommandResult {
         info!("DrawVertexPulledCuboids");
+        if entity.is_none() {
+            return RenderCommandResult::Success;
+        }
         let entry = buffer_cache
             .into_inner()
             .entries

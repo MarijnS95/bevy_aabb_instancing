@@ -6,31 +6,28 @@ use crate::CuboidMaterialId;
 use crate::CuboidMaterialMap;
 
 use bevy::ecs::system::command::insert_batch;
+use bevy::render::extract_component::ExtractComponent;
 use bevy::{prelude::*, render::Extract};
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn extract_cuboids(
     mut prev_extracted_entities_size: Local<usize>,
     mut commands: Commands,
-    cuboids: Query<(
-        Entity,
-        Ref<Cuboids>,
-        &GlobalTransform,
-        &CuboidMaterialId,
-        Option<&ViewVisibility>,
-    )>,
-    materials: Option<Res<CuboidMaterialMap>>,
-
+    cuboids: Extract<
+        Query<(
+            Entity,
+            Ref<Cuboids>,
+            &GlobalTransform,
+            &CuboidMaterialId,
+            Option<&ViewVisibility>,
+        )>,
+    >,
+    materials: Extract<Res<CuboidMaterialMap>>,
     mut materials_uniforms: ResMut<DynamicUniformBufferOfCuboidMaterial>,
     mut cuboid_buffers: ResMut<CuboidBufferCache>,
     mut transform_uniforms: ResMut<DynamicUniformBufferOfCuboidTransforms>,
 ) {
     transform_uniforms.clear();
-
-    let Some(materials) = materials else {
-        info!("No material map");
-        return;
-    };
 
     if materials.is_empty() {
         warn!("Cannot draw Cuboids with empty CuboidMaterialMap");
@@ -54,12 +51,16 @@ pub(crate) fn extract_cuboids(
             continue;
         }
 
-        extracted_entities.push((entity, ()));
-
+        if let Some(c) = Cuboids::extract_component(&cuboids) {
+            extracted_entities.push((entity, c));
+        } else {
+            panic!()
+        }
         let transform = CuboidsTransform::from_matrix(transform.to_matrix());
 
         let is_visible = maybe_visibility.is_none_or(|vis| vis.get());
 
+        info!("Add {entity:?}");
         let entry = cuboid_buffers.entries.entry(entity).or_default();
         if instance_buffer_needs_update {
             entry.instance_buffer.set(cuboids.instances.clone());
@@ -77,12 +78,13 @@ pub(crate) fn extract_cuboids(
     *prev_extracted_entities_size = extracted_entities.len();
     // TODO: Panics on empty bundle
     // commands.insert_batch(extracted_entities);
+    commands.try_insert_batch(extracted_entities);
 
     cuboid_buffers.cull_entities();
 }
 
 pub(crate) fn extract_clipping_planes(
-    clipping_planes: Query<(&ClippingPlaneRange, &GlobalTransform)>,
+    clipping_planes: Extract<Query<(&ClippingPlaneRange, &GlobalTransform)>>,
     mut clipping_plane_uniform: ResMut<UniformBufferOfGpuClippingPlaneRanges>,
 ) {
     let mut iter = clipping_planes.iter();

@@ -9,10 +9,11 @@ use super::prepare::{
 };
 use super::queue::queue_cuboids;
 use crate::vertex_pulling::index_buffer::prepare_cuboids_index_buffer;
-use crate::CuboidMaterialMap;
+use crate::{CuboidMaterialMap, Cuboids};
 use bevy::asset::embedded_asset;
 use bevy::core_pipeline::core_3d::Opaque3d;
 use bevy::prelude::*;
+use bevy::render::sync_component::SyncComponentPlugin;
 use bevy::render::view::prepare_view_uniforms;
 use bevy::render::{render_phase::AddRenderCommand, RenderApp};
 use bevy::render::{Render, RenderSystems};
@@ -49,8 +50,8 @@ impl Plugin for VertexPullingRenderPlugin {
 
         render_app
             .add_render_command::<Opaque3d, DrawCuboids>()
-            // TODO: pull from main app!
-            .init_resource::<CuboidMaterialMap>()
+            // https://docs.rs/bevy_render/0.17.2/src/bevy_render/extract_component.rs.html#188
+            .add_plugins(SyncComponentPlugin::<Cuboids>::default())
             .init_resource::<AuxiliaryMeta>()
             .init_resource::<CuboidBufferCache>()
             .init_resource::<CuboidsPipelines>()
@@ -61,8 +62,7 @@ impl Plugin for VertexPullingRenderPlugin {
             .init_resource::<ViewMeta>()
             // TODO: Perform extraction differently
             // https://bevy.org/learn/migration-guides/0-15-to-0-16/#deprecate-insert-or-spawn-function-family
-            // Or via extract_component? Now it just appends to the cache buffer...
-            // https://docs.rs/bevy/0.17.2/src/custom_phase_item/custom_phase_item.rs.html#167
+            // Custom implementation of ExtractComponent
             .add_systems(ExtractSchedule, (extract_cuboids, extract_clipping_planes))
             .add_systems(
                 Render,
