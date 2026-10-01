@@ -9,16 +9,13 @@ use bevy::{prelude::*, render::Extract};
 
 #[allow(clippy::type_complexity)]
 pub(crate) fn extract_cuboids(
-    mut prev_extracted_entities_size: Local<usize>,
-    mut commands: Commands,
     cuboids: Extract<
         Query<(
             Entity,
-            &Cuboids,
+            Ref<Cuboids>,
             &GlobalTransform,
             &CuboidMaterialId,
             Option<&ViewVisibility>,
-            Or<(Added<Cuboids>, Changed<Cuboids>)>,
         )>,
     >,
     materials: Extract<Res<CuboidMaterialMap>>,
@@ -37,16 +34,12 @@ pub(crate) fn extract_cuboids(
     // cuboids.
     let materials_indices = materials.write_uniforms(&mut materials_uniforms);
 
-    let mut extracted_entities = Vec::with_capacity(*prev_extracted_entities_size);
-    for (
-        entity,
-        cuboids,
-        transform,
-        materials_id,
-        maybe_visibility,
-        instance_buffer_needs_update,
-    ) in cuboids.iter()
-    {
+    // Note that nothing is inserted into the render world here: `queue_cuboids` finds cuboids
+    // through `RenderVisibleEntities` (driven by the main world's `VisibilityClass`) and looks
+    // their buffers up in `CuboidBufferCache` by main-world entity, so a render-world copy of
+    // `Cuboids` would go unread.
+    for (entity, cuboids, transform, materials_id, maybe_visibility) in &cuboids {
+        let instance_buffer_needs_update = cuboids.is_added() || cuboids.is_changed();
         // Filter all entities that don't have any instances. If an entity went
         // from non-empty to empty, then it will get culled from the buffer
         // cache.
@@ -54,11 +47,9 @@ pub(crate) fn extract_cuboids(
             continue;
         }
 
-        extracted_entities.push((entity, ()));
+        let transform = CuboidsTransform::from_matrix(transform.to_matrix());
 
-        let transform = CuboidsTransform::from_matrix(transform.compute_matrix());
-
-        let is_visible = maybe_visibility.map(|vis| vis.get()).unwrap_or(true);
+        let is_visible = maybe_visibility.is_none_or(|vis| vis.get());
 
         let entry = cuboid_buffers.entries.entry(entity).or_default();
         if instance_buffer_needs_update {
@@ -69,11 +60,8 @@ pub(crate) fn extract_cuboids(
         entry.enabled = is_visible;
         entry.keep_alive = true;
         entry.position = transform.position();
-        entry.transform_index = transform_uniforms.push(transform);
+        entry.transform_index = transform_uniforms.push(&transform);
     }
-
-    *prev_extracted_entities_size = extracted_entities.len();
-    commands.insert_or_spawn_batch(extracted_entities);
 
     cuboid_buffers.cull_entities();
 }
@@ -98,7 +86,7 @@ pub(crate) fn extract_clipping_planes(
         }
     }
     if iter.next().is_some() {
-        warn!(
+        panic!(
             "Too many GpuClippingPlaneRanges entities, at most {MAX_CLIPPING_PLANES} are supported"
         );
     }

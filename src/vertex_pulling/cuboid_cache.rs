@@ -1,9 +1,9 @@
 use crate::Cuboid;
 
 use bevy::{
+    platform::collections::HashMap,
     prelude::*,
     render::render_resource::{BindGroup, StorageBuffer},
-    utils::HashMap,
 };
 
 #[derive(Default, Resource)]

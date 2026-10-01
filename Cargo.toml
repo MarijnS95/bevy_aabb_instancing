@@ -2,6 +2,8 @@
 name = "bevy-aabb-instancing"
 version = "0.11.0"
 edition = "2021"
+# `examples/camera_controller.rs` is a shared module, not an example of its own.
+autoexamples = false
 description = "Render millions of AABB instances in Bevy."
 authors = [
     "Duncan Fairbanks <duncan.fairbanks@foresightmining.com>",
@@ -14,14 +16,21 @@ repository = "https://github.com/ForesightMiningSoftwareCorporation/bevy-aabb-in
 [features]
 trace = ["bevy/trace_chrome"]
 
+[dependencies]
+bytemuck = "1"
+
 [dependencies.bevy]
-version = "0.12.1"
+version = "0.19.1"
 default-features = false
-features = ["bevy_asset", "bevy_core_pipeline", "bevy_render", "x11"]
+features = ["bevy_asset", "bevy_core_pipeline", "bevy_render", "bevy_log"]
 
 [dev-dependencies]
 rand = "0.8"
-smooth-bevy-cameras = "0.10"
+
+[dev-dependencies.bevy]
+version = "0.19.1"
+default-features = false
+features = ["tonemapping_luts", "debug", "x11", "debug", "zstd_rust"]
 
 [[example]]
 name = "wave"
@@ -30,4 +39,4 @@ path = "examples/wave.rs"
 [[example]]
 name = "bloom"
 path = "examples/bloom.rs"
-required-features = ["bevy/ktx2", "bevy/tonemapping_luts", "bevy/zstd"]
+required-features = ["bevy/bevy_post_process", "bevy/ktx2", "bevy/tonemapping_luts"]

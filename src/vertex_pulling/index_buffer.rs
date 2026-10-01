@@ -1,21 +1,29 @@
 use bevy::{
-    asset::{Asset, Handle},
-    core::cast_slice,
-    ecs::system::lifetimeless::SRes,
-    reflect::{TypePath, TypeUuid},
+    ecs::{
+        resource::Resource,
+        system::Commands,
+        world::{FromWorld, World},
+    },
     render::{
-        render_asset::RenderAsset,
-        render_resource::{Buffer, BufferInitDescriptor, BufferUsages},
+        render_resource::{Buffer, BufferInitDescriptor, BufferSlice, BufferUsages},
         renderer::RenderDevice,
     },
 };
+use core::ops::RangeBounds;
 
-#[derive(Asset, Default, TypeUuid, TypePath)]
-#[uuid = "8f6d78a6-fffe-4e54-81db-08b0739a947a"]
-pub struct CuboidsIndexBuffer;
+/// Static index buffer shared by every cuboid draw.
+///
+/// The contents are compile-time constant, so this is a plain render-world resource rather than a
+/// [`RenderAsset`](bevy::render::render_asset::RenderAsset): there is no source asset to track and
+/// nothing to re-upload.
+#[derive(Resource)]
+pub struct CuboidsIndexBuffer(Buffer);
 
-pub(crate) const CUBE_INDICES_HANDLE: Handle<CuboidsIndexBuffer> =
-    Handle::weak_from_u128(17343092250772987267);
+impl CuboidsIndexBuffer {
+    pub(crate) fn slice(&self, bounds: impl RangeBounds<u64>) -> BufferSlice<'_> {
+        self.0.slice(bounds)
+    }
+}
 
 // Only 3 faces are actually drawn.
 const NUM_CUBE_INDICES_USIZE: usize = 3 * 3 * 2;
@@ -33,29 +41,18 @@ pub(crate) const CUBE_INDICES: [u32; NUM_CUBE_INDICES_USIZE] = [
     0b10_000, 0b10_100, 0b10_110, 0b10_000, 0b10_110, 0b10_010, // face YZ (2)
 ];
 
-impl RenderAsset for CuboidsIndexBuffer {
-    type ExtractedAsset = Self;
+pub(crate) fn prepare_cuboids_index_buffer(mut commands: Commands) {
+    commands.init_resource::<CuboidsIndexBuffer>()
+}
 
-    type PreparedAsset = Buffer;
-
-    type Param = SRes<RenderDevice>;
-
-    fn extract_asset(&self) -> Self::ExtractedAsset {
-        Self
-    }
-
-    fn prepare_asset(
-        _extracted_asset: Self::ExtractedAsset,
-        render_device: &mut bevy::ecs::system::SystemParamItem<Self::Param>,
-    ) -> Result<
-        Self::PreparedAsset,
-        bevy::render::render_asset::PrepareAssetError<Self::ExtractedAsset>,
-    > {
+impl FromWorld for CuboidsIndexBuffer {
+    fn from_world(world: &mut World) -> Self {
+        let render_device = world.resource::<RenderDevice>();
         let buffer = render_device.create_buffer_with_data(&BufferInitDescriptor {
             usage: BufferUsages::INDEX,
             label: Some("Cuboid Index Buffer"),
-            contents: cast_slice(CUBE_INDICES.as_slice()),
+            contents: bytemuck::cast_slice(CUBE_INDICES.as_slice()),
         });
-        Ok(buffer)
+        Self(buffer)
     }
 }

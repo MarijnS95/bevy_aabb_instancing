@@ -3,19 +3,18 @@ use bevy_aabb_instancing::{
     Cuboid, CuboidMaterial, CuboidMaterialId, CuboidMaterialMap, Cuboids,
     VertexPullingRenderPlugin, COLOR_MODE_SCALAR_HUE,
 };
-use smooth_bevy_cameras::{controllers::fps::*, LookTransformPlugin};
+mod camera_controller;
+use camera_controller::{CameraController, CameraControllerPlugin};
 
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
-        .insert_resource(Msaa::Off)
         .add_plugins((
             VertexPullingRenderPlugin { outlines: true },
-            LookTransformPlugin,
-            FpsCameraPlugin::default(),
+            CameraControllerPlugin,
         ))
         .add_systems(Startup, setup)
-        .add_systems(Update, (update_scalar_hue_options, toggle_fps_controller))
+        .add_systems(Update, update_scalar_hue_options)
         .run();
 }
 
@@ -51,38 +50,25 @@ fn setup(mut commands: Commands, mut material_map: ResMut<CuboidMaterialMap>) {
             }
             let cuboids = Cuboids::new(instances);
             let aabb = cuboids.aabb();
-            commands
-                .spawn(SpatialBundle::default())
-                .insert((cuboids, aabb, material_id));
+            commands.spawn((
+                Transform::default(),
+                Visibility::default(),
+                cuboids,
+                aabb,
+                material_id,
+            ));
         }
     }
 
-    commands
-        .spawn(Camera3dBundle::default())
-        .insert(FpsCameraBundle::new(
-            FpsCameraController {
-                translate_sensitivity: 200.0,
-                enabled: false,
-                ..Default::default()
-            },
-            Vec3::new(0.0, 100.0, 0.0),
-            Vec3::new(100.0, 0.0, 100.0),
-            Vec3::Y,
-        ));
+    commands.spawn((
+        Camera3d::default(),
+        CameraController::looking_at(Vec3::new(0.0, 100.0, 0.0), Vec3::new(100.0, 0.0, 100.0)),
+    ));
 }
 
 fn update_scalar_hue_options(time: Res<Time>, mut material_map: ResMut<CuboidMaterialMap>) {
     let material = material_map.get_mut(CuboidMaterialId(1));
-    let tv = 1000.0 * (time.elapsed_seconds().sin() + 1.0);
+    let tv = 1000.0 * (time.elapsed_secs() + 1.0);
     material.scalar_hue.max_visible = tv;
     material.scalar_hue.clamp_max = tv;
-}
-
-fn toggle_fps_controller(
-    mouse_button_input: Res<Input<MouseButton>>,
-    mut controller: Query<&mut FpsCameraController>,
-) {
-    if mouse_button_input.just_pressed(MouseButton::Left) {
-        controller.single_mut().enabled = true;
-    }
 }

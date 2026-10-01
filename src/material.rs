@@ -34,7 +34,7 @@ pub struct CuboidMaterial {
     /// [`VertexPullingRenderPlugin::edges`](crate::VertexPullingRenderPlugin)
     /// must be `true` for this to take effect.
     pub wireframe: u32,
-    #[align(16)]
+    #[shader(align(16))]
     pub scalar_hue: ScalarHueOptions,
 
     /// An extra factor that multiplies a cuboid's color when the "emissive" bit
@@ -156,7 +156,7 @@ impl CuboidMaterialMap {
         uniforms.clear();
         let mut indices = Vec::new();
         for material in self.materials.iter() {
-            indices.push(CuboidMaterialUniformIndex(uniforms.push(material.clone())));
+            indices.push(CuboidMaterialUniformIndex(uniforms.push(material)));
         }
         indices
     }

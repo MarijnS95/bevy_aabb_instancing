@@ -1,46 +1,63 @@
 use crate::clipping_planes::GpuClippingPlaneRanges;
 use crate::{cuboids::CuboidsTransform, CuboidMaterial};
 
-use bevy::render::render_resource::ShaderDefVal;
-use bevy::render::texture::BevyDefault;
+use bevy::asset::load_embedded_asset;
+use bevy::mesh::PrimitiveTopology;
+use bevy::shader::ShaderDefVal;
 use bevy::{
     prelude::*,
     render::{
-        mesh::PrimitiveTopology,
         render_resource::{
             BindGroupLayout, BindGroupLayoutDescriptor, BindGroupLayoutEntry, BindingType,
-            BlendState, BufferBindingType, BufferSize, CachedRenderPipelineId, ColorTargetState,
-            ColorWrites, CompareFunction, DepthBiasState, DepthStencilState, FragmentState,
-            FrontFace, MultisampleState, PipelineCache, PolygonMode, PrimitiveState,
-            RenderPipelineDescriptor, ShaderStages, ShaderType, StencilFaceState, StencilState,
-            TextureFormat, VertexState,
+            BlendState, BufferBindingType, BufferSize, ColorTargetState, ColorWrites,
+            CompareFunction, DepthBiasState, DepthStencilState, FragmentState, FrontFace,
+            MultisampleState, PolygonMode, PrimitiveState, RenderPipelineDescriptor, ShaderStages,
+            ShaderType, SpecializedRenderPipeline, StencilFaceState, StencilState, TextureFormat,
+            VertexState,
         },
         renderer::RenderDevice,
         view::ViewUniform,
     },
 };
 
+/// Specialization key for [`CuboidsPipelines`].
+///
+/// MSAA is configured per camera (it is a `Msaa` component on the view, not a global resource),
+/// and the sample count baked into a pipeline has to match the render pass it is used in, so it
+/// cannot be fixed up front.
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct CuboidsPipelineKey {
+    pub target_format: TextureFormat,
+    pub samples: u32,
+}
+
 #[derive(Resource)]
 pub(crate) struct CuboidsPipelines {
-    pub pipeline_id: CachedRenderPipelineId,
-    pub hdr_pipeline_id: CachedRenderPipelineId,
+    shader: Handle<Shader>,
+    shader_defs: CuboidsShaderDefs,
 
     pub aux_layout: BindGroupLayout,
     pub cuboids_layout: BindGroupLayout,
     pub transforms_layout: BindGroupLayout,
     pub view_layout: BindGroupLayout,
-}
 
-pub(crate) const VERTEX_PULLING_SHADER_HANDLE: Handle<Shader> =
-    Handle::weak_from_u128(17343092250772987267);
+    /// Descriptions of the four layouts above, in bind group order.
+    ///
+    /// `RenderPipelineDescriptor` describes its layouts rather than taking already-created ones,
+    /// so keep both: the descriptors for the pipeline, and the concrete layouts for building the
+    /// bind groups in `prepare`.
+    layout_descriptors: Vec<BindGroupLayoutDescriptor>,
+}
 
 impl FromWorld for CuboidsPipelines {
     fn from_world(world: &mut World) -> Self {
+        let vertex_pulling = load_embedded_asset!(world, "vertex_pulling.wgsl");
+
         let render_device = world.resource::<RenderDevice>();
 
-        let view_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("cuboids_view_layout"),
-            entries: &[
+        let view_layout_descriptor = BindGroupLayoutDescriptor::new(
+            "cuboids_view_layout",
+            &[
                 // View
                 BindGroupLayoutEntry {
                     binding: 0,
@@ -53,11 +70,13 @@ impl FromWorld for CuboidsPipelines {
                     count: None,
                 },
             ],
-        });
+        );
+        let view_layout = render_device
+            .create_bind_group_layout(Some("cuboids_view_layout"), &view_layout_descriptor.entries);
 
-        let aux_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("aux_layout"),
-            entries: &[
+        let aux_layout_descriptor = BindGroupLayoutDescriptor::new(
+            "aux_layout",
+            &[
                 BindGroupLayoutEntry {
                     binding: 0,
                     visibility: ShaderStages::VERTEX | ShaderStages::FRAGMENT,
@@ -79,27 +98,32 @@ impl FromWorld for CuboidsPipelines {
                     count: None,
                 },
             ],
-        });
+        );
+        let aux_layout = render_device
+            .create_bind_group_layout(Some("aux_layout"), &aux_layout_descriptor.entries);
 
-        let transforms_layout =
-            render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-                label: Some("transforms_layout"),
-                entries: &[BindGroupLayoutEntry {
-                    binding: 0,
-                    visibility: ShaderStages::VERTEX,
-                    ty: BindingType::Buffer {
-                        ty: BufferBindingType::Uniform,
-                        has_dynamic_offset: true,
-                        // We always have a single transform for each instance buffer.
-                        min_binding_size: Some(CuboidsTransform::min_size()),
-                    },
-                    count: None,
-                }],
-            });
+        let transforms_layout_descriptor = BindGroupLayoutDescriptor::new(
+            "transforms_layout",
+            &[BindGroupLayoutEntry {
+                binding: 0,
+                visibility: ShaderStages::VERTEX,
+                ty: BindingType::Buffer {
+                    ty: BufferBindingType::Uniform,
+                    has_dynamic_offset: true,
+                    // We always have a single transform for each instance buffer.
+                    min_binding_size: Some(CuboidsTransform::min_size()),
+                },
+                count: None,
+            }],
+        );
+        let transforms_layout = render_device.create_bind_group_layout(
+            Some("transforms_layout"),
+            &transforms_layout_descriptor.entries,
+        );
 
-        let cuboids_layout = render_device.create_bind_group_layout(&BindGroupLayoutDescriptor {
-            label: Some("cuboid_instances_layout"),
-            entries: &[BindGroupLayoutEntry {
+        let cuboids_layout_descriptor = BindGroupLayoutDescriptor::new(
+            "cuboid_instances_layout",
+            &[BindGroupLayoutEntry {
                 binding: 0,
                 visibility: ShaderStages::VERTEX,
                 ty: BindingType::Buffer {
@@ -109,97 +133,88 @@ impl FromWorld for CuboidsPipelines {
                 },
                 count: None,
             }],
-        });
+        );
+        let cuboids_layout = render_device.create_bind_group_layout(
+            Some("cuboid_instances_layout"),
+            &cuboids_layout_descriptor.entries,
+        );
 
-        let sample_count = world.resource::<Msaa>().samples();
-        let shader_defs = world.resource::<CuboidsShaderDefs>();
-
-        let layout = vec![
-            view_layout.clone(),
-            aux_layout.clone(),
-            transforms_layout.clone(),
-            cuboids_layout.clone(),
+        let layout_descriptors = vec![
+            view_layout_descriptor,
+            aux_layout_descriptor,
+            transforms_layout_descriptor,
+            cuboids_layout_descriptor,
         ];
-        let vertex = VertexState {
-            shader: VERTEX_PULLING_SHADER_HANDLE,
-            shader_defs: shader_defs.vertex.clone(),
-            entry_point: "vertex".into(),
-            buffers: vec![],
-        };
-        let fragment_target = |texture_format| FragmentState {
-            shader: VERTEX_PULLING_SHADER_HANDLE,
-            shader_defs: shader_defs.fragment.clone(),
-            entry_point: "fragment".into(),
-            targets: vec![Some(ColorTargetState {
-                format: texture_format,
-                blend: Some(BlendState::REPLACE),
-                write_mask: ColorWrites::ALL,
-            })],
-        };
-        let primitive = PrimitiveState {
-            front_face: FrontFace::Ccw,
-            cull_mode: None,
-            unclipped_depth: false,
-            polygon_mode: PolygonMode::Fill,
-            conservative: false,
-            topology: PrimitiveTopology::TriangleList,
-            strip_index_format: None,
-        };
-        let depth_stencil = Some(DepthStencilState {
-            format: TextureFormat::Depth32Float,
-            depth_write_enabled: true,
-            depth_compare: CompareFunction::Greater,
-            stencil: StencilState {
-                front: StencilFaceState::IGNORE,
-                back: StencilFaceState::IGNORE,
-                read_mask: 0,
-                write_mask: 0,
-            },
-            bias: DepthBiasState {
-                constant: 0,
-                slope_scale: 0.0,
-                clamp: 0.0,
-            },
-        });
-        let multisample = MultisampleState {
-            count: sample_count,
-            mask: !0,
-            alpha_to_coverage_enabled: false,
-        };
 
-        let pipeline_descriptor = RenderPipelineDescriptor {
-            label: Some("cuboids_pipeline".into()),
-            layout: layout.clone(),
-            vertex: vertex.clone(),
-            fragment: Some(fragment_target(TextureFormat::bevy_default())),
-            primitive,
-            depth_stencil: depth_stencil.clone(),
-            multisample,
-            push_constant_ranges: Vec::new(),
-        };
-
-        let hdr_pipeline_descriptor = RenderPipelineDescriptor {
-            label: Some("cuboids_hdr_pipeline".into()),
-            layout,
-            vertex,
-            fragment: Some(fragment_target(TextureFormat::Rgba16Float)),
-            primitive,
-            depth_stencil,
-            multisample,
-            push_constant_ranges: Vec::new(),
-        };
-
-        let pipeline_cache = world.resource_mut::<PipelineCache>();
-        let pipeline_id = pipeline_cache.queue_render_pipeline(pipeline_descriptor);
-        let hdr_pipeline_id = pipeline_cache.queue_render_pipeline(hdr_pipeline_descriptor);
+        let shader_defs = world.resource::<CuboidsShaderDefs>().clone();
 
         Self {
-            pipeline_id,
-            hdr_pipeline_id,
+            layout_descriptors,
+            shader: vertex_pulling,
+            shader_defs,
             view_layout,
             aux_layout,
             cuboids_layout,
             transforms_layout,
+        }
+    }
+}
+
+impl SpecializedRenderPipeline for CuboidsPipelines {
+    type Key = CuboidsPipelineKey;
+
+    fn specialize(&self, key: Self::Key) -> RenderPipelineDescriptor {
+        RenderPipelineDescriptor {
+            label: Some("cuboids_pipeline".into()),
+            layout: self.layout_descriptors.clone(),
+            vertex: VertexState {
+                shader: self.shader.clone(),
+                shader_defs: self.shader_defs.vertex.clone(),
+                entry_point: Some("vertex".into()),
+                buffers: vec![],
+            },
+            fragment: Some(FragmentState {
+                shader: self.shader.clone(),
+                shader_defs: self.shader_defs.fragment.clone(),
+                entry_point: Some("fragment".into()),
+                targets: vec![Some(ColorTargetState {
+                    format: key.target_format,
+                    blend: Some(BlendState::REPLACE),
+                    write_mask: ColorWrites::ALL,
+                })],
+            }),
+            primitive: PrimitiveState {
+                front_face: FrontFace::Ccw,
+                cull_mode: None,
+                unclipped_depth: false,
+                polygon_mode: PolygonMode::Fill,
+                conservative: false,
+                topology: PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+            },
+            depth_stencil: Some(DepthStencilState {
+                format: TextureFormat::Depth32Float,
+                depth_write_enabled: Some(true),
+                depth_compare: Some(CompareFunction::Greater),
+                stencil: StencilState {
+                    front: StencilFaceState::IGNORE,
+                    back: StencilFaceState::IGNORE,
+                    read_mask: 0,
+                    write_mask: 0,
+                },
+                bias: DepthBiasState {
+                    constant: 0,
+                    slope_scale: 0.0,
+                    clamp: 0.0,
+                },
+            }),
+            multisample: MultisampleState {
+                count: key.samples,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            immediate_size: 0,
+            zero_initialize_workgroup_memory: false,
         }
     }
 }

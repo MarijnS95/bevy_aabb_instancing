@@ -1,9 +1,11 @@
 use bevy::{
+    camera::{
+        primitives::Aabb,
+        visibility::{self, VisibilityClass},
+    },
     prelude::*,
-    render::{primitives::Aabb, render_resource::ShaderType},
+    render::{render_resource::ShaderType, sync_component::SyncComponent},
 };
-
-use crate::CuboidMaterialId;
 
 /// Value that determines the color of a [`Cuboid`] based on the associated
 /// [`CuboidMaterial`](crate::CuboidMaterial).
@@ -75,10 +77,21 @@ impl Cuboid {
 }
 
 /// A set of cuboids to be extracted for rendering.
-#[derive(Clone, Component, Debug, Default)]
+#[derive(Clone, Component)]
+#[require(VisibilityClass)]
+#[component(on_add = visibility::add_visibility_class::<Cuboids>)]
 pub struct Cuboids {
     /// Instances to be rendered.
     pub instances: Vec<Cuboid>,
+}
+
+impl SyncComponent for Cuboids {
+    // Nothing of ours lives in the render world -- `queue_cuboids` goes through
+    // `RenderVisibleEntities` and `CuboidBufferCache` -- so there is nothing to remove when
+    // `Cuboids` is removed in the main world. The plugin is still needed for the
+    // `SyncToRenderWorld` required-component registration that gives visible cuboids a
+    // render-world counterpart.
+    type Target = ();
 }
 
 impl Cuboids {
@@ -88,6 +101,8 @@ impl Cuboids {
 
     /// Automatically creates an [`Aabb`] that bounds all `instances`.
     pub fn aabb(&self) -> Aabb {
+        // Aabb::enclosing(self.instances.iter().flat_map(|c| [c.minimum, c.maximum])).unwrap()
+        // Similar:
         let mut min = Vec3::splat(f32::MAX);
         let mut max = Vec3::splat(f32::MIN);
         for i in self.instances.iter() {
@@ -116,11 +131,4 @@ impl CuboidsTransform {
     pub fn position(&self) -> Vec3 {
         self.matrix.col(3).truncate()
     }
-}
-
-#[derive(Bundle)]
-pub struct CuboidsBundle {
-    pub material_id: CuboidMaterialId,
-    pub cuboids: Cuboids,
-    pub spatial: SpatialBundle,
 }
